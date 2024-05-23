@@ -6,12 +6,17 @@ from pdf2image import convert_from_path
 import fitz
 import enchant
 
-d = enchant.Dict('en_US')
+#instantiates enchant module
+d = enchant.Dict('en_US') 
 
-
-#converts scanned pdf into text file by using pytesseract if pdf is not scanned
-#main, svl
 def write_text(directory, txt_name):
+    """
+    Converts an un-scanned (ie text is not able to be highlighted) pdfs into a text file using pytesseract ;;main, svl
+
+    Args:
+    directory: directory that holds all the unscanned pdfs
+    txt_name: txt file that will hold all converted pdfs-to-strings
+    """
     f = open(txt_name, 'w')
     count = 0
 
@@ -44,39 +49,19 @@ def write_text(directory, txt_name):
                 print(count)
     f.close()
 
-#pdf table
-def create_clean_txt(txt_name, pdf_path):
-    images = convert_from_path(pdf_path)
-    extracted_text = ''
-    for image in images:
-        extracted_text += pytesseract.image_to_string(image)
-
-    text = extracted_text.replace('\n\n','\n')
-    text = text.replace('Police Department\n', '')
-    text = text.replace('\n', ' ')
-    #new line for each subheading
-    text = text.replace('Case', '\nCase')
-    text = text.replace('Date', '\nDate')
-    text = text.replace('Location', '\nLocation')
-    text = text.replace('Incident / Call Type', '\nIncident / Call Type')
-    text = text.replace('Officer of Record', '\nOfficer of Record')
-
-    with open(txt_name, 'w') as f:
-        f.write(text)
-
-#pdftable, create data
-def create_clean_text(txt_name):
-    with open(txt_name, 'r') as f:
-        with open('clean.txt', 'w') as c:
-            while True:
-                line = f.readline()
-                if not line:
-                    break
-                elif line.startswith('Date') or line.startswith('Location'):
-                    c.write(line)
-
 #main
 def create_datum(text):
+    """
+    Iterated method to get date and time of crash, number of people injured or killed (no difference in research purposes),
+    location of crash (street one and street two, if exist), and whether the accident occurred at a crosswalk and/or
+    parking lot
+
+    Args:
+    text: string representation of accident report
+
+    Returns:
+    dictionary mapping label to information
+    """
     curr_data = {}
 
     pdf = text.find('pdf')
@@ -154,6 +139,15 @@ def create_datum(text):
 
 #svl
 def create_datum_svl(text):
+    """
+    Iterated method to get date and time of crash, number of people injured or killed (no difference in research purposes),
+    location of crash (street one and street two, if exist), and whether the accident occurred at a crosswalk and/or
+    parking lot. Due to the differences in abbreviations used based on town, methods were slightly modified to retrieve the 
+    same information.
+
+    Args:
+    text: string representation of accident report
+    """
     curr_data = {}
 
     pdf = text.find('pdf')
@@ -185,7 +179,7 @@ def create_datum_svl(text):
         curr_data['Was_Injured'] = int(injury_death_count)
 
         # first street name
-        occurred_on = text.find('occurred on:')  # misspelled occurred
+        occurred_on = text.find('occurred on:')  
         substr = text[occurred_on:-1]
         idx = substr.find('2.')
         substr = text[occurred_on + len('occurred on: '): occurred_on + idx]
@@ -218,11 +212,19 @@ def create_datum_svl(text):
 
 
 #main, svl
-def create_data(directory, txt_name, filepath, town):
+def create_data(directory, txt_name):
+    """
+    Iterates through all the string representations of accident reports to create the data
+
+    Args:
+    directory: directory that holds town's accident reports
+    txt_name: txt file that holds string representations of each accident report
+
+    Returns:
+    list of all data
+    """
     if not os.path.exists(txt_name):
         write_text(directory, txt_name)
-    if not os.path.exists(town + '_strings.txt'):
-        create_clean_txt(town + '_strings.txt', filepath)
 
     file = open(txt_name, 'r')
     lines = file.readlines()
@@ -236,10 +238,72 @@ def create_data(directory, txt_name, filepath, town):
 
     return data
 
+#main, svl
+def create_csv(directory, txt_name, csv_name):
+    """
+    First creates pandas DataFrame from the data, which is then turned into a csv
+
+    Args:
+    directory: directory that holds all the pdf accident reports
+    txt_name: txt file to write string representations of accident reports to
+    csv_name: csv file to write pandas DataFrame to
+    """
+    data = create_data(directory, txt_name)
+    df = pd.DataFrame(data)
+    if not os.path.exists(csv_name):
+        df.to_csv(csv_name, encoding='utf-8', index=False)
+
+#pdf table
+def write_clean_txt(txt_name, pdf_path):
+    """
+    Converts unscanned pdf, cleans text, and writes to a txt file
+
+    Args:
+    txt_name: txt file that text of each pdf gets written to
+    pdf_path: 
+    """
+    images = convert_from_path(pdf_path)
+    extracted_text = ''
+    for image in images:
+        extracted_text += pytesseract.image_to_string(image)
+
+    text = extracted_text.replace('\n\n','\n')
+    text = text.replace('Police Department\n', '')
+    text = text.replace('\n', ' ')
+    #new line for each subheading
+    text = text.replace('Case', '\nCase')
+    text = text.replace('Date', '\nDate')
+    text = text.replace('Location', '\nLocation')
+    text = text.replace('Incident / Call Type', '\nIncident / Call Type')
+    text = text.replace('Officer of Record', '\nOfficer of Record')
+
+    with open(txt_name, 'w') as f:
+        f.write(text)
+    f.close()
+
+    #rewrites over to clean.txt necessary lines (ie only Date and Location)
+    with open(txt_name, 'r') as f:
+        with open('clean.txt', 'w') as c:
+            while True:
+                line = f.readline()
+                if not line:
+                    break
+                elif line.startswith('Date') or line.startswith('Location'):
+                    c.write(line)
 
 #pdftable
-def create_dataframe(town):
-    create_data(town + '_strings.txt')
+def create_dataframe(txt_name, filepath):
+    """
+    Creates dataframe for date and location of accident
+
+    Args:
+    txt_name: txt file that holds each date, location, etc on separate lines
+    
+    Returns:
+    array that holds dates and locations (same length)
+    """
+    if not os.path.exists(txt_name):
+        write_clean_txt(txt_name, filepath)
 
     dates = []
     locations = []
@@ -252,7 +316,7 @@ def create_dataframe(town):
                 line_date = line.split('  ')
                 for date in line_date[1:-1]:
                     if 'N' in date:
-                        date = date.replace('N','/1')
+                        date = date.replace('N','/1') #pytessaract sometimes misinterpreted /1 as N
                         dates.append(date)
             elif line.startswith('Location'):
                 line_loc = line.split(' ')
@@ -262,25 +326,27 @@ def create_dataframe(town):
     return dates, locations
 
 
-#main, svl
-def create_csv(directory, txt_name, csv_name):
-    data = create_data(directory, txt_name)
-    df = pd.DataFrame(data)
-    if not os.path.exists(csv_name):
-        df.to_csv(csv_name, encoding='utf-8', index=False)
-
-
 #proj, folder of pdfs, strings txt, dataframe csvs
 #main
 def run(data_path):
+    """
+    Creates csvs from all the accident reports based on the folder (ie town) which they came from
+
+    Args:
+    data_path: folder that holds the folders that hold the pdf accident reports
+
+    Note:
+    town_name_here is uniquely an image of a pdf, not an accident report. It is a table of accident report ids, 
+    dates, location, and type of accident (all of which are Motor Vehicle Crashes, Pedestrians Struck).
+    """
     for filename in os.listdir(data_path):
         if not filename == '.DS_Store':
             filepath = os.path.join(data_path, filename)
             if filename == 'town_name_here':
-                dates, location = create_dataframe(town_name_here)
+                dates, location = create_dataframe(filename + '.txt', filepath) 
                 df = pd.DataFrame({
                     'Dates': dates,
-                    'Locations': locations
+                    'Locations': location
                 })
                 csv = ''
                 df.to_csv(csv, encoding='utf-8', index=False)
