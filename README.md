@@ -1,3 +1,3 @@
-main.py contains various functions that can be used to ultimately create a table containing the revelevant information from the pedestrian traffic accidents. The general methodology is to take a folder that contains files in "PDF" format (files came in images as well) and appropriately scanning the file. After appropriately reading the file, it cleans the data and finds relevant information such as date and location. An example resulting csv is below:
-[town1.pdf](https://github.com/user-attachments/files/17177159/town1.pdf)
+main.py contains various functions that can be used to ultimately create a table containing the revelevant information from the pedestrian traffic accidents. The general methodology is to take a folder that contains files in "PDF" format (files came in images as well) and appropriately scanning the file. After appropriately reading the file, it cleans the data and finds relevant information such as date and location. Here is a modified example resulting csv:
+[town1.pdf](https://github.com/user-attachments/files/17177186/town1.pdf)
 webscraping.py first downloads files into a folder in order to then utilize the appropriate methods in main.py.
